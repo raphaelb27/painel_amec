@@ -105,7 +105,7 @@
 
 <script>
 /* ===== COLE AQUI O ENDEREÇO DO SEU APLICATIVO WEB DO GOOGLE ===== */
-const API = "COLE_AQUI_A_URL_DO_APPS_SCRIPT";
+const API = "https://script.google.com/macros/s/AKfycbxSP8FzMsgJkFjNsgPCrHmx3E8rvTDUJzlA_bT8WlitW0nrqTOuTDX-6Fgz6mK0iBfh/exec";
 
 /* Números de reserva: usados se a API não responder */
 const RESERVA = {
@@ -210,6 +210,10 @@ document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{
   }catch(e){
     console.warn("API indisponível, usando reserva:", e);
     pintar(RESERVA,false);
+    const f=document.getElementById("foot");
+    f.textContent = "Modo reserva. Motivo: " + (e && e.message ? e.message : e) +
+      " — abra a URL da API no navegador para conferir se devolve JSON.";
+    f.style.color="#b3352b";
   }
 })();
 </script>
