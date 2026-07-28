@@ -75,6 +75,7 @@
 
 <section class="panel on" id="caixa">
   <div class="grid" id="kCaixa"></div>
+  <div class="note" id="fluxoNota" style="margin-bottom:14px"></div>
   <h2>Caixa livre acumulado — 13 semanas</h2>
   <div class="bars" id="fcp"></div>
   <div class="note">Barras vermelhas: a fila de contas supera o que entrou. A triagem de segunda decide o que paga e o que rola com data.</div>
@@ -104,7 +105,7 @@
 
 <script>
 /* ===== COLE AQUI O ENDEREÇO DO SEU APLICATIVO WEB DO GOOGLE ===== */
-const API = "https://script.google.com/macros/s/AKfycbxSP8FzMsgJkFjNsgPCrHmx3E8rvTDUJzlA_bT8WlitW0nrqTOuTDX-6Fgz6mK0iBfh/exec";
+const API = "COLE_AQUI_A_URL_DO_APPS_SCRIPT";
 
 /* Números de reserva: usados se a API não responder */
 const RESERVA = {
@@ -146,8 +147,15 @@ function pintar(D, aoVivo){
     {l:"Fundo do poço (pior semana)",v:brl(c.fundo_do_poco),s:"fila de contas a rolar",c:"a"},
     {l:"Fim da janela (13ª semana)",v:brl(c.fim_janela),s:"depois de virar",c:c.fim_janela>0?"g":"r"}
   ].map(kpi).join("");
+  const rot = c.fcp_rotulos || [];
+  const fd = D.fluxo_diario;
+  document.getElementById("fluxoNota").textContent = fd
+    ? ("Fechamento de " + fd.data + ": Artta R$ " + Number(fd.contas.artta_clinica||0).toLocaleString("pt-BR")
+       + " · bloqueado no dia R$ " + Number(fd.bloqueado_dia||0).toLocaleString("pt-BR")
+       + (fd.observacao ? " · " + fd.observacao : ""))
+    : "";
   barras(document.getElementById("fcp"),
-    (c.fcp||[]).map((v,i)=>["S"+(i+1),v]), "var(--green)", "var(--red)");
+    (c.fcp||[]).map((v,i)=>[(rot[i]||("S"+(i+1))).split(" ")[0], v]), "var(--green)", "var(--red)");
 
   const m = D.mutirao||{};
   document.getElementById("kMutirao").innerHTML = [
