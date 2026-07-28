@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Painel Ame.C</title>
+<style>
+  :root{
+    --ink:#14232a; --paper:#f7f4ee; --card:#ffffff; --line:#e2ded4;
+    --teal:#0f4c5c; --tealsoft:#e6eef0; --amber:#d98a2b; --ambersoft:#f7ecd9;
+    --green:#2e7d5b; --greensoft:#e4f0e9; --red:#b3352b; --redsoft:#f6e4e2;
+    --mut:#6d7a7e;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--paper);color:var(--ink);
+    font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
+    padding:28px;max-width:1280px;margin:0 auto}
+  header{display:flex;justify-content:space-between;align-items:flex-end;
+    border-bottom:3px solid var(--teal);padding-bottom:14px;margin-bottom:6px}
+  h1{font-size:26px;letter-spacing:-.5px;color:var(--teal)}
+  h1 span{color:var(--amber)}
+  .updated{font-size:12px;color:var(--mut);text-align:right;line-height:1.5}
+  .updated b{color:var(--ink)}
+  .tabs{display:flex;gap:6px;margin:18px 0 22px}
+  .tab{padding:9px 18px;border:1px solid var(--line);background:var(--card);
+    border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;color:var(--mut);
+    transition:.15s}
+  .tab.on{background:var(--teal);color:#fff;border-color:var(--teal)}
+  .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;
+    padding:16px 18px;position:relative;overflow:hidden}
+  .kpi::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px}
+  .kpi.g::before{background:var(--green)} .kpi.a::before{background:var(--amber)}
+  .kpi.r::before{background:var(--red)} .kpi.n::before{background:var(--teal)}
+  .kpi .lab{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--mut);margin-bottom:8px}
+  .kpi .val{font-size:27px;font-weight:700;letter-spacing:-.5px}
+  .kpi .sub{font-size:11.5px;color:var(--mut);margin-top:5px;line-height:1.4}
+  .kpi.g .val{color:var(--green)} .kpi.r .val{color:var(--red)} .kpi.a .val{color:var(--amber)} .kpi.n .val{color:var(--teal)}
+  .panel{display:none} .panel.on{display:block}
+  h2{font-size:14px;text-transform:uppercase;letter-spacing:.6px;color:var(--teal);
+    margin:24px 0 12px;padding-left:10px;border-left:4px solid var(--amber)}
+  table{width:100%;border-collapse:collapse;background:var(--card);
+    border:1px solid var(--line);border-radius:12px;overflow:hidden;font-size:13px}
+  th{background:var(--teal);color:#fff;text-align:left;padding:10px 12px;font-weight:600;font-size:11.5px;text-transform:uppercase;letter-spacing:.4px}
+  td{padding:9px 12px;border-top:1px solid var(--line)}
+  tr:nth-child(even) td{background:#faf8f4}
+  .num{text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
+  .pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700}
+  .pill.g{background:var(--greensoft);color:var(--green)}
+  .pill.a{background:var(--ambersoft);color:var(--amber)}
+  .pill.r{background:var(--redsoft);color:var(--red)}
+  .bars{display:flex;align-items:flex-end;gap:7px;height:190px;padding:16px;
+    background:var(--card);border:1px solid var(--line);border-radius:12px;margin-bottom:8px}
+  .bar{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;gap:5px}
+  .bar .col{width:100%;border-radius:4px 4px 0 0;min-height:2px;transition:.3s}
+  .bar .cap{font-size:9.5px;color:var(--mut);white-space:nowrap}
+  .bar .amt{font-size:9px;font-weight:700}
+  .note{font-size:11.5px;color:var(--mut);font-style:italic;margin:8px 2px 0}
+  footer{margin-top:30px;padding-top:14px;border-top:1px solid var(--line);
+    font-size:11px;color:var(--mut);line-height:1.6}
+  .flag{background:var(--redsoft);border:1px solid var(--red);border-radius:10px;
+    padding:12px 16px;margin-bottom:8px;font-size:13px;color:var(--ink)}
+  .flag b{color:var(--red)}
+</style>
+</head>
+<body>
+<header>
+  <h1>Painel <span>Ame.C</span></h1>
+  <div class="updated">Atualizado em <b id="stamp">—</b><br>Fonte: FCP + Fature/Orizon + Feegow</div>
+</header>
+
+<div class="tabs">
+  <div class="tab on" data-p="caixa">💰 Caixa</div>
+  <div class="tab" data-p="mutirao">📤 Mutirão</div>
+  <div class="tab" data-p="bloqueios">🚨 Bloqueios</div>
+  <div class="tab" data-p="liminares">⚖️ Liminares</div>
+</div>
+
+<!-- ============ CAIXA ============ -->
+<section class="panel on" id="caixa">
+  <div class="grid" id="caixaKpis"></div>
+  <h2>Caixa livre acumulado — 13 semanas</h2>
+  <div class="bars" id="fcpBars"></div>
+  <div class="note" id="fcpNote"></div>
+  <h2>Contas que não podem atrasar esta semana</h2>
+  <table id="fixasTbl"><thead><tr><th>Compromisso</th><th class="num">Valor</th><th>Status</th></tr></thead><tbody></tbody></table>
+</section>
+
+<!-- ============ MUTIRÃO ============ -->
+<section class="panel" id="mutirao">
+  <div class="grid" id="mutKpis"></div>
+  <h2>Filas do faturamento</h2>
+  <table id="filaTbl"><thead><tr><th>Fila</th><th class="num">Guias</th><th class="num">Valor</th><th>O que fazer</th></tr></thead><tbody></tbody></table>
+  <div class="note">Regra: guia sem assinatura não fatura. Lote sem protocolo não existe. P4 só com o "sim" formal do Bradesco.</div>
+</section>
+
+<!-- ============ BLOQUEIOS ============ -->
+<section class="panel" id="bloqueios">
+  <div class="grid" id="bloqKpis"></div>
+  <div id="bloqFlags"></div>
+  <h2>Ordens ativas na conta</h2>
+  <table id="bloqTbl"><thead><tr><th>Processo / Credor</th><th class="num">Valor bloqueado</th><th>Situação</th></tr></thead><tbody></tbody></table>
+</section>
+
+<!-- ============ LIMINARES ============ -->
+<section class="panel" id="liminares">
+  <div class="grid" id="limKpis"></div>
+  <h2>Casos no funil</h2>
+  <table id="limTbl"><thead><tr><th>Operadora</th><th>Paciente</th><th>Força</th><th>Conta no fluxo?</th></tr></thead><tbody></tbody></table>
+  <div class="note">Prevent é o pagador âncora (mensal, dia 8-15). Atenção ao churn: cada saída custa ~R$14 mil/mês de margem.</div>
+</section>
+
+<footer id="foot"></footer>
+
+<!-- ================================================================= -->
+<!-- ÁREA DE DADOS: edite SÓ o que está entre as chaves. Salve. Pronto. -->
+<!-- ================================================================= -->
+<script id="DADOS" type="application/json">
+{
+  "atualizado": "28/07/2026",
+  "caixa": {
+    "kpis": [
+      {"lab":"Disponível hoje (livre)","val":"R$ 767","sub":"Artta R$681 + outras","cor":"r"},
+      {"lab":"Bloqueado acumulado","val":"R$ 43.958","sub":"SulAmérica + Vilela","cor":"r"},
+      {"lab":"Fundo do poço (S8)","val":"-R$ 32.262","sub":"14/09 — o vale mais fundo","cor":"a"},
+      {"lab":"Fim da janela (S13)","val":"+R$ 90.967","sub":"19/10 — depois de virar","cor":"g"}
+    ],
+    "fcp": [-41391,-74562,-27162,-43686,-25362,-71036,-36586,-32262,8344,-8644,17118,46205,90967],
+    "fcpNote": "Barras vermelhas = a fila de contas supera o que entrou. A virada real acontece na semana 9. Cada atraso do mutirão empurra a virada.",
+    "fixas": [
+      {"nome":"Itaú — parcela vencida (protege o apartamento)","val":"R$ 6.200","cor":"r","txt":"URGENTE"},
+      {"nome":"Aluguel ABA","val":"R$ 18.000","cor":"a","txt":"em dia"},
+      {"nome":"Repasses correntes (reserva)","val":"R$ 11.500","cor":"g","txt":"separado no dia"},
+      {"nome":"Acordos homologados","val":"R$ 3.000","cor":"g","txt":"nunca atrasa"}
+    ]
+  },
+  "mutirao": {
+    "kpis": [
+      {"lab":"A faturar (fila P1-P3)","val":"R$ 97 mil","sub":"prontas p/ transmitir","cor":"g"},
+      {"lab":"A cobrar (já enviadas)","val":"R$ 214 mil","sub":"conciliar pagamento","cor":"a"},
+      {"lab":"Carta Bradesco (P4)","val":"R$ 244 mil","sub":"aguarda Anexo v3","cor":"a"},
+      {"lab":"A cancelar (fantasmas)","val":"R$ 218 mil","sub":"agendas inativas","cor":"r"}
+    ],
+    "fila": [
+      {"nome":"P1 + P2 (expiram já)","g":"—","v":"R$ 30 mil","txt":"transmitir até 31/07","cor":"r"},
+      {"nome":"P3 + Mediservice","g":"—","v":"R$ 67 mil","txt":"transmitir até 04/08","cor":"a"},
+      {"nome":"Já transmitidas","g":"1.509","v":"R$ 214 mil","txt":"cobrar, não reenviar","cor":"g"},
+      {"nome":"Confirmar ou cancelar","g":"4.864","v":"R$ 322 mil","txt":"blitz + cancelamento","cor":"a"}
+    ]
+  },
+  "bloqueios": {
+    "kpis": [
+      {"lab":"Total bloqueado","val":"R$ 43.958","sub":"em 3 ordens","cor":"r"},
+      {"lab":"SulAmérica","val":"R$ 7.964","sub":"defesa: essencialidade","cor":"r"},
+      {"lab":"Vilela","val":"R$ 16.853","sub":"acordo: bloqueado quita","cor":"a"},
+      {"lab":"Disponível livre","val":"R$ 767","sub":"contas sem bloqueio","cor":"r"}
+    ],
+    "flags": [
+      "<b>Regra da conta Bradesco:</b> extrato conferido toda manhã, antes de qualquer pagamento. Dinheiro que cair lá não dorme: transfere no dia pra conta de operação.",
+      "<b>SulAmérica é ordem repetitiva:</b> vai morder cada crédito novo. Prioridade da Géssica: petição de essencialidade + valor-alvo da ordem."
+    ],
+    "linhas": [
+      {"nome":"SulAmérica (0061142-25) — ordem 20/07","val":"R$ 3.400","sit":"em defesa","cor":"r"},
+      {"nome":"SulAmérica (0061142-25) — ordem 24/07","val":"R$ 4.563","sit":"em defesa","cor":"r"},
+      {"nome":"G. Vilela (4017261-51)","val":"R$ 16.853","sit":"acordo em negociação","cor":"a"}
+    ]
+  },
+  "liminares": {
+    "kpis": [
+      {"lab":"Prevent (âncora)","val":"~R$ 63 mil/mês","sub":"após saídas recentes","cor":"a"},
+      {"lab":"Bradesco recorrente","val":"6 casos","sub":"Lucas já paga","cor":"g"},
+      {"lab":"Backlog estimado","val":"R$ 460 mil","sub":"auditoria em curso","cor":"a"},
+      {"lab":"Churn recente","val":"2 saídas","sub":"Lorenzo + Caio (pedido)","cor":"r"}
+    ],
+    "casos": [
+      {"op":"Bradesco","pac":"Lucas","forca":"favorável","cor":"g","fcp":"SIM"},
+      {"op":"Bradesco","pac":"Pedro Izukawa","forca":"favorável","cor":"g","fcp":"SIM"},
+      {"op":"Bradesco","pac":"Noah","forca":"favorável","cor":"g","fcp":"SIM"},
+      {"op":"Bradesco","pac":"Mateus e Gabriel","forca":"favorável","cor":"g","fcp":"SIM"},
+      {"op":"Bradesco","pac":"Pedro Gomes","forca":"condicional","cor":"a","fcp":"NÃO"},
+      {"op":"Plena","pac":"Felipe","forca":"favorável (MLE)","cor":"g","fcp":"upside"}
+    ]
+  },
+  "rodape": "Painel operacional Ame.C. Números do dinheiro vêm do FCP (atualizado toda segunda). Números de faturamento vêm do Fature/Orizon e Feegow. Este arquivo é a única fonte: edite o bloco de dados e recarregue."
+}
+</script>
+
+<script>
+const D = JSON.parse(document.getElementById('DADOS').textContent);
+document.getElementById('stamp').textContent = D.atualizado;
+document.getElementById('foot').textContent = D.rodape;
+
+// tabs
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));
+  document.querySelectorAll('.panel').forEach(x=>x.classList.remove('on'));
+  t.classList.add('on'); document.getElementById(t.dataset.p).classList.add('on');
+});
+
+const kpi = o => `<div class="kpi ${o.cor}"><div class="lab">${o.lab}</div><div class="val">${o.val}</div><div class="sub">${o.sub||''}</div></div>`;
+const fill = (id,arr)=>document.getElementById(id).innerHTML = arr.map(kpi).join('');
+fill('caixaKpis',D.caixa.kpis); fill('mutKpis',D.mutirao.kpis);
+fill('bloqKpis',D.bloqueios.kpis); fill('limKpis',D.liminares.kpis);
+
+// FCP bars
+const f=D.caixa.fcp, mx=Math.max(...f.map(Math.abs));
+document.getElementById('fcpBars').innerHTML = f.map((v,i)=>{
+  const h=Math.abs(v)/mx*100, pos=v>=0;
+  return `<div class="bar"><div class="amt" style="color:${pos?'var(--green)':'var(--red)'}">${(v/1000).toFixed(0)}k</div>
+    <div class="col" style="height:${h}%;background:${pos?'var(--green)':'var(--red)'}"></div>
+    <div class="cap">S${i+1}</div></div>`;
+}).join('');
+document.getElementById('fcpNote').textContent = D.caixa.fcpNote;
+
+const rowFixas = D.caixa.fixas.map(r=>`<tr><td>${r.nome}</td><td class="num">${r.val}</td><td><span class="pill ${r.cor}">${r.txt}</span></td></tr>`).join('');
+document.querySelector('#fixasTbl tbody').innerHTML = rowFixas;
+
+document.querySelector('#filaTbl tbody').innerHTML = D.mutirao.fila.map(r=>
+  `<tr><td>${r.nome}</td><td class="num">${r.g}</td><td class="num">${r.v}</td><td><span class="pill ${r.cor}">${r.txt}</span></td></tr>`).join('');
+
+document.getElementById('bloqFlags').innerHTML = D.bloqueios.flags.map(f=>`<div class="flag">${f}</div>`).join('');
+document.querySelector('#bloqTbl tbody').innerHTML = D.bloqueios.linhas.map(r=>
+  `<tr><td>${r.nome}</td><td class="num">${r.val}</td><td><span class="pill ${r.cor}">${r.sit}</span></td></tr>`).join('');
+
+document.querySelector('#limTbl tbody').innerHTML = D.liminares.casos.map(r=>
+  `<tr><td>${r.op}</td><td>${r.pac}</td><td><span class="pill ${r.cor}">${r.forca}</span></td><td>${r.fcp}</td></tr>`).join('');
+</script>
+</body>
+</html>
