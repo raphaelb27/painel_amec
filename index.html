@@ -79,15 +79,22 @@
   <h2>Caixa livre acumulado — 13 semanas</h2>
   <div class="bars" id="fcp"></div>
   <div class="note">Barras vermelhas: a fila de contas supera o que entrou. A triagem de segunda decide o que paga e o que rola com data.</div>
+  <h2>Contas a pagar, na ordem de prioridade</h2>
+  <table id="tContas"><thead><tr><th>Nível</th><th>Credor / Compromisso</th><th class="num">Devido total</th><th class="num">Obrigação do mês</th><th>Situação</th></tr></thead><tbody></tbody></table>
+  <div class="note" id="tContasTotais"></div>
 </section>
 
 <section class="panel" id="mutirao">
   <div class="grid" id="kMutirao"></div>
-  <div class="note">Regras: guia sem assinatura não fatura. Lote sem protocolo não existe. P4 só com o sim formal do Bradesco.</div>
+  <h2>Produção da equipe (automático, do Feegow)</h2>
+  <div class="grid" id="kProducao"></div>
+  <div class="note">Regras: guia sem assinatura não fatura. Lote sem protocolo não existe. P4 só com o sim formal do Bradesco. Os valores grandes (a faturar/cobrar/carta) vêm da conferência com o Orizon e são atualizados na aba Painel.</div>
 </section>
 
 <section class="panel" id="liminares">
   <div class="grid" id="kLiminares"></div>
+  <h2>Situação financeira por liminar</h2>
+  <table id="tLimVal"><thead><tr><th>Caso</th><th>Operadora</th><th class="num">R$/mês</th><th class="num">Recebido</th><th>Última comp.</th><th class="num">Meses parado</th><th>Observação</th></tr></thead><tbody></tbody></table>
   <h2>Sessões realizadas no ano, por caso</h2>
   <table id="tLim"><thead><tr><th>Caso</th><th class="num">Sessões</th></tr></thead><tbody></tbody></table>
   <div class="note">Contagem automática do Feegow (status Atendido). Onde a lista de presença física mostrar mais, o valor cobrável sobe.</div>
@@ -177,6 +184,30 @@ function pintar(D, aoVivo){
     ? ses.map(([k,v])=>`<tr><td>${k}</td><td class="num">${v}</td></tr>`).join("")
     : `<tr><td colspan="2">Sem dados de auditoria ainda.</td></tr>`;
 
+  const det = (l.detalhe||[]);
+  document.querySelector("#tLimVal tbody").innerHTML = det.length
+    ? det.map(d=>`<tr><td>${d.caso}</td><td>${d.op}</td><td class="num">${brl(d.mes)}</td><td class="num">${brl(d.recebido)}</td><td>${d.ultima}</td><td class="num" style="color:${d.parado>0?'var(--red)':'var(--green)'}">${d.parado}</td><td style="font-size:11.5px">${d.obs}</td></tr>`).join("")
+    : `<tr><td colspan="7">Preencha a aba "Liminares Valores".</td></tr>`;
+
+  const pr = (D.mutirao||{}).producao||{};
+  document.getElementById("kProducao").innerHTML = [
+    {l:"Guias abertas (fila)",v:pr.guias_abertas??"—",s:"aguardando faturamento",c:"a"},
+    {l:"Guias resolvidas",v:pr.guias_resolvidas??"—",s:"saíram da fila",c:"g"},
+    {l:"Baixas pendentes",v:pr.baixas_pendentes??"—",s:"status a corrigir",c:"r"},
+    {l:"Senhas obtidas / pendentes",v:(pr.senhas_obtidas??0)+" / "+(pr.senhas_pendentes??0),s:"lista mensal",c:"n"}
+  ].map(kpi).join("");
+
+  const contas = (D.caixa||{}).contas||[];
+  const cores = {1:"var(--red)",2:"var(--red)",3:"var(--amber)",4:"var(--amber)",5:"var(--teal)",6:"var(--mut)",7:"var(--mut)"};
+  document.querySelector("#tContas tbody").innerHTML = contas.length
+    ? contas.map(c0=>`<tr><td style="font-weight:700;color:${cores[c0.nivel]||'var(--ink)'}">${c0.nivel}</td><td>${c0.credor}</td><td class="num">${c0.total?brl(c0.total):"—"}</td><td class="num">${c0.mes?brl(c0.mes):"—"}</td><td style="font-size:11.5px">${c0.sit}</td></tr>`).join("")
+    : `<tr><td colspan="5">Preencha a aba "Contas Prioridade".</td></tr>`;
+  if(contas.length){
+    const td=contas.reduce((a,c0)=>a+(c0.total||0),0), tm=contas.reduce((a,c0)=>a+(c0.mes||0),0);
+    document.getElementById("tContasTotais").textContent =
+      "Devido total mapeado: "+brl(td)+" · obrigações do mês: "+brl(tm)+" · níveis 1 e 2 nunca atrasam; 7 é contenção comunicada.";
+  }
+
   const o = D.operacao||{};
   const st = o.por_status||{};
   const atendidos = Object.entries(st).filter(([k])=>/atendido/i.test(k)).reduce((a,[,v])=>a+v,0);
@@ -187,7 +218,7 @@ function pintar(D, aoVivo){
     {l:"Faltas",v:faltas.toLocaleString("pt-BR"),s:"não compareceu",c:"a"},
     {l:"Taxa de presença",v:(atendidos+faltas? Math.round(atendidos/(atendidos+faltas)*100):0)+"%",s:"realizados sobre o total",c:"n"}
   ].map(kpi).join("");
-  const meses = Object.entries(o.por_mes||{}).sort((a,b)=>a[0].localeCompare(b[0]));
+  const meses = Object.entries(o.por_mes||{}).filter(([k])=>/\/26$/.test(k)).sort((a,b)=>a[0].localeCompare(b[0]));
   barras(document.getElementById("meses"), meses, "var(--teal)", "var(--red)");
   document.querySelector("#tStatus tbody").innerHTML = Object.entries(st)
     .sort((a,b)=>b[1]-a[1])
