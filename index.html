@@ -336,12 +336,15 @@ function pintarEmpresa(){
   const tk=nome=>{ for(const k in tickets){ if(k.indexOf(nome)>=0) return tickets[k].v; } return 120; };
   const pesoG=g=> (grupo==="TODOS")?1:(g===grupo?1:(g==="AMBOS"?0.5:0));
   // simulador: liminares 18.500 + psiq + neuro (grupo ABA) + demais especialidades no ritmo atual
+  const limSess=(EMP.sessoes_liminares_mes||{})[mesCheio]||{};
   const outrasReceita=Object.entries(sessUlt).reduce((a,[eid,n])=>{
     const nm=nomeEsp(eid);
-    if(nm.indexOf("psiquiat")>=0||nm.indexOf("neuro")>=0||nm.indexOf("aba")>=0) return a;
+    if(nm.indexOf("psiquiat")>=0||nm.indexOf("neuro")>=0) return a;
+    const liq=Math.max(n-(limSess[eid]||0),0);   // desconta sessões já pagas pelo contrato da liminar
+    if(!liq) return a;
     const t=mapaTicket(eid);
     const pw=(grupo==="TODOS")?1:(t.grupo===grupo?1:(t.grupo==="AMBOS"?0.5:0));
-    return a+n*t.v*pw;
+    return a+liq*t.v*pw;
   },0);
   const receitaSim = (limValorAtual + EMPINP.novas*18500)*pesoG("ABA")
                    + EMPINP.psiq*tk("psiquiat")*pesoG("ABA")
@@ -359,7 +362,7 @@ function pintarEmpresa(){
      <label>+ novas liminares <input type="number" min="0" value="${EMPINP.novas}" style="width:56px" onchange="EMPINP.novas=Number(this.value);pintarEmpresa()"> × R$ 18.500</label>
      <label>Atend. psiquiatria/mês <input type="number" min="0" value="${EMPINP.psiq}" style="width:70px" onchange="EMPINP.psiq=Number(this.value);pintarEmpresa()"> × ${brl(tk("psiquiat"))}</label>
      <label>Atend. neuro/mês <input type="number" min="0" value="${EMPINP.neuro}" style="width:70px" onchange="EMPINP.neuro=Number(this.value);pintarEmpresa()"> × ${brl(tk("neuro"))}</label>
-     <span style="color:var(--mut)">demais especialidades: ritmo do último mês fechado</span>`;
+     <span style="color:var(--mut)">demais especialidades: ritmo do último mês fechado, já descontadas as sessões cobertas pelos contratos de liminar</span>`;
   document.getElementById("kEmpresa").innerHTML=[
     {l:"Receita simulada/mês",v:brl(receitaSim),s:"liminares + volumes + demais",c:"n"},
     {l:"Custo fixo",v:brl(fixo),s:"linhas ligadas",c:"a"},
