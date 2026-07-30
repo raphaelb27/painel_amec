@@ -273,11 +273,12 @@ function pintarEmpresa(){
     receitaMes[mes]=r;
   });
   // custo mensal com as linhas ligadas
-  let fixo=0,vari=0,divi=0;
+  let fixo=0,vari=0,divi=0,custoCheio=0;
   custos.forEach((c,i)=>{
+    const v=c.valor*peso(c);
+    custoCheio+=v;
     const on=EMPSEL[i]!==undefined?EMPSEL[i]:c.ativo;
     if(!on) return;
-    const v=c.valor*peso(c);
     if(c.tipo==="FIXO")fixo+=v; else if(c.tipo==="VARIAVEL")vari+=v; else divi+=v;
   });
   const custoTotal=fixo+vari+divi;
@@ -298,14 +299,26 @@ function pintarEmpresa(){
     {l:"Variável + dívidas/mês",v:brl(vari)+" + "+brl(divi),s:"repasses e parcelas",c:"a"},
     {l:"Resultado do mês",v:brl(resultado),s:resultado>=0?"superávit":"déficit",c:resultado>=0?"g":"r"}
   ].map(kpi).join("");
-  const mx=Math.max(...serie.map(x=>Math.max(x.receita,x.custo)),1);
+  const mx=Math.max(...serie.map(x=>x.receita),custoCheio,1);
+  const hTot=(fixo+vari+divi)/mx*100;
+  const fr=v=>(fixo+vari+divi)>0?v/(fixo+vari+divi)*100:0;
   document.getElementById("empChart").innerHTML=serie.map(x=>{
-    const hr=x.receita/mx*100, hc=x.custo/mx*100;
+    const hr=x.receita/mx*100;
     return `<div class="bar"><div style="display:flex;gap:2px;align-items:flex-end;height:100%;width:100%">
-      <div style="flex:1;height:${hr}%;background:${x.proj?"#7fb3a3":"var(--green)"};border-radius:3px 3px 0 0" title="receita"></div>
-      <div style="flex:1;height:${hc}%;background:var(--red);opacity:.75;border-radius:3px 3px 0 0" title="custo"></div>
+      <div style="flex:1;height:${hr}%;background:${x.proj?"#7fb3a3":"var(--green)"};border-radius:3px 3px 0 0" title="receita ${Math.round(x.receita/1000)}k"></div>
+      <div style="flex:1;height:${hTot}%;display:flex;flex-direction:column;border-radius:3px 3px 0 0;overflow:hidden">
+        <div style="height:${fr(divi)}%;background:var(--red)" title="dívidas ${Math.round(divi/1000)}k"></div>
+        <div style="height:${fr(vari)}%;background:#4a90a4" title="variável ${Math.round(vari/1000)}k"></div>
+        <div style="height:${fr(fixo)}%;background:var(--amber)" title="fixo ${Math.round(fixo/1000)}k"></div>
+      </div>
     </div><div class="cap">${x.mes}${x.proj?"*":""}</div></div>`;
-  }).join("")+`<div class="note" style="writing-mode:vertical-rl;font-size:9px">verde=receita (*projeção) · vermelho=custo</div>`;
+  }).join("")+`<div style="display:flex;flex-direction:column;gap:4px;font-size:9.5px;justify-content:flex-end;padding-bottom:14px;min-width:78px">
+    <span><i style="display:inline-block;width:9px;height:9px;background:var(--green);border-radius:2px"></i> receita</span>
+    <span><i style="display:inline-block;width:9px;height:9px;background:#7fb3a3;border-radius:2px"></i> projeção</span>
+    <span><i style="display:inline-block;width:9px;height:9px;background:var(--amber);border-radius:2px"></i> fixo</span>
+    <span><i style="display:inline-block;width:9px;height:9px;background:#4a90a4;border-radius:2px"></i> variável</span>
+    <span><i style="display:inline-block;width:9px;height:9px;background:var(--red);border-radius:2px"></i> dívidas</span>
+  </div>`;
   document.getElementById("empCustos").innerHTML=custos.map((c,i)=>{
     const on=EMPSEL[i]!==undefined?EMPSEL[i]:c.ativo;
     return `<label style="display:flex;gap:7px;align-items:center;cursor:pointer;${on?"":"opacity:.45"}">
