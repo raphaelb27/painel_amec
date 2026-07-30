@@ -301,8 +301,11 @@ function pintarEmpresa(){
     else if(nm.indexOf("neuro")>=0) neuroBase+=n;
     else if(nm.indexOf("aba")<0) outrasBase+=n;  // ABA fica fora: coberto pelas liminares
   });
-  const limConfirmadas=LIMDET.filter((d,i)=>LIMSEL[i]).length;
-  if(EMPINP.lim===undefined)EMPINP.lim=limConfirmadas;
+  const limAtivas=LIMDET.filter((d,i)=>LIMSEL[i]);
+  const limValorAtual=limAtivas.reduce((a,d)=>a+d.mes,0);
+  const limCheias=limAtivas.filter(d=>d.mes>=10000).length;
+  const limPacotes=limAtivas.length-limCheias;
+  if(EMPINP.novas===undefined)EMPINP.novas=0;
   if(EMPINP.psiq===undefined)EMPINP.psiq=psiqBase;
   if(EMPINP.neuro===undefined)EMPINP.neuro=neuroBase;
   const tk=nome=>{ for(const k in tickets){ if(k.indexOf(nome)>=0) return tickets[k].v; } return 120; };
@@ -315,7 +318,7 @@ function pintarEmpresa(){
     const pw=(grupo==="TODOS")?1:(t.grupo===grupo?1:(t.grupo==="AMBOS"?0.5:0));
     return a+n*t.v*pw;
   },0);
-  const receitaSim = EMPINP.lim*18500*pesoG("ABA")
+  const receitaSim = (limValorAtual + EMPINP.novas*18500)*pesoG("ABA")
                    + EMPINP.psiq*tk("psiquiat")*pesoG("ABA")
                    + EMPINP.neuro*tk("neuro")*pesoG("ABA")
                    + outrasReceita;
@@ -327,7 +330,8 @@ function pintarEmpresa(){
   }
   const resultado=receitaSim-custoTotal;
   document.getElementById("empSim").innerHTML=
-    `<label>Liminares ativas <input type="number" min="0" value="${EMPINP.lim}" style="width:64px" onchange="EMPINP.lim=Number(this.value);pintarEmpresa()"> × R$ 18.500</label>
+    `<span style="background:var(--greensoft);padding:5px 9px;border-radius:6px">Liminares ativas hoje: <b>${limCheias} cheias + ${limPacotes} pacotes = ${brl(limValorAtual)}/mês</b> <span style="font-weight:400;color:var(--mut)">(marque na aba Liminares)</span></span>
+     <label>+ novas liminares <input type="number" min="0" value="${EMPINP.novas}" style="width:56px" onchange="EMPINP.novas=Number(this.value);pintarEmpresa()"> × R$ 18.500</label>
      <label>Atend. psiquiatria/mês <input type="number" min="0" value="${EMPINP.psiq}" style="width:70px" onchange="EMPINP.psiq=Number(this.value);pintarEmpresa()"> × ${brl(tk("psiquiat"))}</label>
      <label>Atend. neuro/mês <input type="number" min="0" value="${EMPINP.neuro}" style="width:70px" onchange="EMPINP.neuro=Number(this.value);pintarEmpresa()"> × ${brl(tk("neuro"))}</label>
      <span style="color:var(--mut)">demais especialidades: ritmo do último mês fechado</span>`;
@@ -342,7 +346,8 @@ function pintarEmpresa(){
   const fr=v=>(fixo+vari+divi)>0?v/(fixo+vari+divi)*100:0;
   document.getElementById("empChart").innerHTML=serie.map(x=>{
     const hr=x.receita/mx*100;
-    return `<div class="bar"><div style="display:flex;gap:2px;align-items:flex-end;height:100%;width:100%">
+    const tt=`${x.mes}${x.proj?" (projeção)":""} — receita ${brl(x.receita)} | custo ${brl(fixo+vari+divi)} = fixo ${brl(fixo)} + variável ${brl(vari)} + dívidas ${brl(divi)} | resultado ${brl(x.receita-(fixo+vari+divi))}`;
+    return `<div class="bar" title="${tt}"><div style="display:flex;gap:2px;align-items:flex-end;height:100%;width:100%" title="${tt}">
       <div style="flex:1;height:${hr}%;background:${x.proj?"#7fb3a3":"var(--green)"};border-radius:3px 3px 0 0" title="receita ${Math.round(x.receita/1000)}k"></div>
       <div style="flex:1;height:${hTot}%;display:flex;flex-direction:column;border-radius:3px 3px 0 0;overflow:hidden" title="custo total ${Math.round((fixo+vari+divi)/1000)}k = fixo ${Math.round(fixo/1000)}k + variável ${Math.round(vari/1000)}k + dívidas ${Math.round(divi/1000)}k">
         <div style="height:${fr(divi)}%;background:var(--red)" title="dívidas ${Math.round(divi/1000)}k"></div>
