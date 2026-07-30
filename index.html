@@ -102,6 +102,12 @@
 </section>
 
 <section class="panel" id="operacao">
+  <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:11px 14px;margin-bottom:14px;font-size:12.5px">
+    <b>Filtros:</b>
+    <label>Especialidade <select id="fEsp" style="padding:6px 9px;border:1px solid var(--line);border-radius:7px;font-size:12.5px"><option value="">todas</option></select></label>
+    <label>Convênio <select id="fConv" style="padding:6px 9px;border:1px solid var(--line);border-radius:7px;font-size:12.5px"><option value="">todos</option></select></label>
+    <span id="fInfo" style="color:var(--mut)"></span>
+  </div>
   <div class="grid" id="kOper"></div>
   <h2>Atendimentos realizados por mês</h2>
   <div class="bars" id="meses"></div>
@@ -233,16 +239,35 @@ function pintar(D, aoVivo){
 
   EMP = D.empresa||null; if(EMP) pintarEmpresa();
   const o = D.operacao||{};
-  const st = o.por_status||{};
+  OPDET = o.detalhe||{esp:{},conv:{},linhas:[]};
+  if(!OPINIT){
+    OPINIT=true;
+    const fe=document.getElementById("fEsp"), fc=document.getElementById("fConv");
+    const espUsadas=[...new Set(OPDET.linhas.map(l=>l.e))].sort((a,b)=>(OPDET.esp[a]||a).localeCompare(OPDET.esp[b]||b));
+    espUsadas.forEach(id=>{ const op=document.createElement("option"); op.value=id; op.textContent=OPDET.esp[id]||("id "+id); fe.appendChild(op); });
+    const convUsados=[...new Set(OPDET.linhas.map(l=>l.c))].sort((a,b)=>(OPDET.conv[a]||a).localeCompare(OPDET.conv[b]||b));
+    convUsados.forEach(id=>{ const op=document.createElement("option"); op.value=id; op.textContent=OPDET.conv[id]||("id "+id); fc.appendChild(op); });
+    fe.onchange=fc.onchange=()=>pintar(window.__D,true);
+  }
+  const selE=document.getElementById("fEsp").value, selC=document.getElementById("fConv").value;
+  const filtradas=OPDET.linhas.filter(l=>(!selE||l.e===selE)&&(!selC||l.c===selC));
+  const st={}, porMesF={};
+  filtradas.forEach(l=>{
+    st[l.s]=(st[l.s]||0)+l.n;
+    if(l.s.toLowerCase().indexOf("atendido")>=0) porMesF[l.m+"/26"]=(porMesF[l.m+"/26"]||0)+l.n;
+  });
+  const totalF=filtradas.reduce((a,l)=>a+l.n,0);
+  document.getElementById("fInfo").textContent =
+    (selE||selC) ? (totalF.toLocaleString("pt-BR")+" agendamentos no filtro") : "";
   const atendidos = Object.entries(st).filter(([k])=>/atendido/i.test(k)).reduce((a,[,v])=>a+v,0);
   const faltas = Object.entries(st).filter(([k])=>/não compareceu|nao compareceu/i.test(k)).reduce((a,[,v])=>a+v,0);
   document.getElementById("kOper").innerHTML = [
-    {l:"Agendamentos no ano",v:(o.total_atendimentos||0).toLocaleString("pt-BR"),s:"desde janeiro",c:"n"},
+    {l:"Agendamentos no ano",v:(totalF||o.total_atendimentos||0).toLocaleString("pt-BR"),s:"desde janeiro",c:"n"},
     {l:"Realizados",v:atendidos.toLocaleString("pt-BR"),s:"status atendido",c:"g"},
     {l:"Faltas",v:faltas.toLocaleString("pt-BR"),s:"não compareceu",c:"a"},
     {l:"Taxa de presença",v:(atendidos+faltas? Math.round(atendidos/(atendidos+faltas)*100):0)+"%",s:"realizados sobre o total",c:"n"}
   ].map(kpi).join("");
-  const meses = Object.entries(o.por_mes||{}).filter(([k])=>/\/26$/.test(k)).sort((a,b)=>a[0].localeCompare(b[0]));
+  const meses = Object.entries(Object.keys(porMesF).length?porMesF:(o.por_mes||{})).filter(([k])=>/\/26$/.test(k)).sort((a,b)=>a[0].localeCompare(b[0]));
   barras(document.getElementById("meses"), meses, "var(--teal)", "var(--red)");
   document.querySelector("#tStatus tbody").innerHTML = Object.entries(st)
     .sort((a,b)=>b[1]-a[1])
@@ -250,7 +275,7 @@ function pintar(D, aoVivo){
     || `<tr><td colspan="2">Sem dados.</td></tr>`;
 }
 
-let EMP=null, EMPSEL={}, LIMSEL={}, LIMDET=[], EMPINP={};
+let EMP=null, EMPSEL={}, LIMSEL={}, LIMDET=[], EMPINP={}, OPDET=null, OPINIT=false;
 function pintarEmpresa(){
   if(!EMP) return;
   const grupo=document.getElementById("empGrupo").value;
