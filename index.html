@@ -71,6 +71,7 @@
   <div class="tab" data-p="mutirao">Mutirão</div>
   <div class="tab" data-p="liminares">Liminares</div>
   <div class="tab" data-p="operacao">Operação</div>
+  <div class="tab" data-p="empresa">Empresa</div>
 </div>
 
 <section class="panel on" id="caixa">
@@ -106,6 +107,23 @@
   <div class="bars" id="meses"></div>
   <h2>Situação dos agendamentos</h2>
   <table id="tStatus"><thead><tr><th>Status</th><th class="num">Qtde</th></tr></thead><tbody></tbody></table>
+</section>
+
+<section class="panel" id="empresa">
+  <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
+    <b style="font-size:13px">Visão:</b>
+    <select id="empGrupo" style="padding:7px 10px;border:1px solid var(--line);border-radius:8px;font-size:13px">
+      <option value="TODOS">Empresa inteira</option>
+      <option value="ABA">ABA + neuro + psiquiatria</option>
+      <option value="AMEC">Ame.C (psicologia)</option>
+    </select>
+    <span class="note" style="margin:0">AMBOS é rateado meio a meio entre os grupos.</span>
+  </div>
+  <div class="grid" id="kEmpresa"></div>
+  <h2>Receita × custo por mês (realizado até o mês atual; depois, projeção mantendo o ritmo)</h2>
+  <div class="bars" id="empChart" style="height:210px"></div>
+  <h2>Linhas de custo — desmarque para simular sem a linha</h2>
+  <div id="empCustos" style="display:grid;grid-template-columns:1fr 1fr;gap:4px 18px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;font-size:12.5px"></div>
 </section>
 
 <footer id="foot"></footer>
@@ -208,6 +226,7 @@ function pintar(D, aoVivo){
       "Devido total mapeado: "+brl(td)+" · obrigações do mês: "+brl(tm)+" · níveis 1 e 2 nunca atrasam; 7 é contenção comunicada.";
   }
 
+  EMP = D.empresa||null; if(EMP) pintarEmpresa();
   const o = D.operacao||{};
   const st = o.por_status||{};
   const atendidos = Object.entries(st).filter(([k])=>/atendido/i.test(k)).reduce((a,[,v])=>a+v,0);
@@ -225,6 +244,77 @@ function pintar(D, aoVivo){
     .map(([k,v])=>`<tr><td>${k}</td><td class="num">${v.toLocaleString("pt-BR")}</td></tr>`).join("")
     || `<tr><td colspan="2">Sem dados.</td></tr>`;
 }
+
+let EMP=null, EMPSEL={};
+function pintarEmpresa(){
+  if(!EMP) return;
+  const grupo=document.getElementById("empGrupo").value;
+  const peso=c=> (grupo==="TODOS")?1:(c.grupo===grupo?1:(c.grupo==="AMBOS"?0.5:0));
+  const custos=(EMP.custos||[]).filter(c=>c.tipo!=="TICKET");
+  const tickets={}; (EMP.custos||[]).filter(c=>c.tipo==="TICKET").forEach(c=>{
+    tickets[c.item.toLowerCase()]={v:c.valor,grupo:c.grupo};
+  });
+  // receita por mês: sessões × ticket, respeitando o grupo
+  const nomes=EMP.sessoes.nomes||{}, dados=EMP.sessoes.dados||{};
+  const mapaTicket=eid=>{
+    const nome=(nomes[eid]||"outras").toLowerCase();
+    for(const k in tickets){ if(k.indexOf(nome.slice(0,6))>=0||nome.indexOf(k.slice(0,6))>=0) return tickets[k]; }
+    for(const k in tickets){ if(k.indexOf("outras")>=0) return tickets[k]; }
+    return {v:120,grupo:"ABA"};
+  };
+  const receitaMes={};
+  Object.entries(dados).forEach(([mes,porEsp])=>{
+    let r=0;
+    Object.entries(porEsp).forEach(([eid,n])=>{
+      const t=mapaTicket(eid);
+      const p=(grupo==="TODOS")?1:(t.grupo===grupo?1:(t.grupo==="AMBOS"?0.5:0));
+      r+=n*t.v*p;
+    });
+    receitaMes[mes]=r;
+  });
+  // custo mensal com as linhas ligadas
+  let fixo=0,vari=0,divi=0;
+  custos.forEach((c,i)=>{
+    const on=EMPSEL[i]!==undefined?EMPSEL[i]:c.ativo;
+    if(!on) return;
+    const v=c.valor*peso(c);
+    if(c.tipo==="FIXO")fixo+=v; else if(c.tipo==="VARIAVEL")vari+=v; else divi+=v;
+  });
+  const custoTotal=fixo+vari+divi;
+  // meses: realizados + projeção até dezembro
+  const mesesReal=Object.keys(receitaMes).sort();
+  const ultimo=mesesReal.length?mesesReal[mesesReal.length-1]:"07";
+  const base=mesesReal.length>=2?receitaMes[mesesReal[mesesReal.length-2]]:(receitaMes[ultimo]||0);
+  const serie=[];
+  for(let m=1;m<=12;m++){
+    const k=String(m).padStart(2,"0");
+    const real=receitaMes[k];
+    serie.push({mes:k+"/26",receita:real!==undefined?real:base,proj:real===undefined,custo:custoTotal});
+  }
+  const resultado=(receitaMes[ultimo]||base)-custoTotal;
+  document.getElementById("kEmpresa").innerHTML=[
+    {l:"Receita do mês (estim.)",v:brl(receitaMes[ultimo]||base),s:"sessões × ticket médio",c:"n"},
+    {l:"Custo fixo",v:brl(fixo),s:"linhas ligadas",c:"a"},
+    {l:"Variável + dívidas/mês",v:brl(vari)+" + "+brl(divi),s:"repasses e parcelas",c:"a"},
+    {l:"Resultado do mês",v:brl(resultado),s:resultado>=0?"superávit":"déficit",c:resultado>=0?"g":"r"}
+  ].map(kpi).join("");
+  const mx=Math.max(...serie.map(x=>Math.max(x.receita,x.custo)),1);
+  document.getElementById("empChart").innerHTML=serie.map(x=>{
+    const hr=x.receita/mx*100, hc=x.custo/mx*100;
+    return `<div class="bar"><div style="display:flex;gap:2px;align-items:flex-end;height:100%;width:100%">
+      <div style="flex:1;height:${hr}%;background:${x.proj?"#7fb3a3":"var(--green)"};border-radius:3px 3px 0 0" title="receita"></div>
+      <div style="flex:1;height:${hc}%;background:var(--red);opacity:.75;border-radius:3px 3px 0 0" title="custo"></div>
+    </div><div class="cap">${x.mes}${x.proj?"*":""}</div></div>`;
+  }).join("")+`<div class="note" style="writing-mode:vertical-rl;font-size:9px">verde=receita (*projeção) · vermelho=custo</div>`;
+  document.getElementById("empCustos").innerHTML=custos.map((c,i)=>{
+    const on=EMPSEL[i]!==undefined?EMPSEL[i]:c.ativo;
+    return `<label style="display:flex;gap:7px;align-items:center;cursor:pointer;${on?"":"opacity:.45"}">
+      <input type="checkbox" ${on?"checked":""} onchange="EMPSEL[${i}]=this.checked;pintarEmpresa()">
+      <span style="flex:1">${c.item} <span style="color:var(--mut)">(${c.tipo.toLowerCase()}, ${c.grupo})</span></span>
+      <b>${brl(c.valor)}</b></label>`;
+  }).join("");
+}
+document.getElementById("empGrupo").onchange=pintarEmpresa;
 
 document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{
   document.querySelectorAll(".tab").forEach(x=>x.classList.remove("on"));
