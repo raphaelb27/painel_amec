@@ -390,17 +390,17 @@ function pintarEmpresa(){
     {l:"Variável + dívidas/mês",v:brl(variComAmil)+" + "+brl(divi),s:"repasses (inclui Amil) e parcelas",c:"a"},
     {l:"Resultado do mês",v:brl(resultado),s:resultado>=0?"superávit":"déficit",c:resultado>=0?"g":"r"}
   ].map(kpi).join("");
-  const mx=Math.max(...serie.map(x=>x.receita),custoCheio,1);
-  const hTot=(fixo+vari+divi)/mx*100;
-  const fr=v=>(fixo+vari+divi)>0?v/(fixo+vari+divi)*100:0;
+  const mx=Math.max(...serie.map(x=>x.receita),custoCheio,custoComAmil,1);
+  const hTot=custoComAmil/mx*100;
+  const fr=v=>custoComAmil>0?v/custoComAmil*100:0;
   document.getElementById("empChart").innerHTML=serie.map(x=>{
     const hr=x.receita/mx*100;
-    const tt=`${x.mes}${x.proj?" (projeção)":""} — receita ${brl(x.receita)} | custo ${brl(fixo+vari+divi)} = fixo ${brl(fixo)} + variável ${brl(vari)} + dívidas ${brl(divi)} | resultado ${brl(x.receita-(fixo+vari+divi))}`;
+    const tt=`${x.mes}${x.proj?" (projeção)":""} — receita ${brl(x.receita)} | custo ${brl(custoComAmil)} = fixo ${brl(fixo)} + variável ${brl(variComAmil)} + dívidas ${brl(divi)} | resultado ${brl(x.receita-custoComAmil)}`;
     return `<div class="bar" title="${tt}"><div style="display:flex;gap:2px;align-items:flex-end;height:100%;width:100%" title="${tt}">
       <div style="flex:1;height:${hr}%;background:${x.proj?"#7fb3a3":"var(--green)"};border-radius:3px 3px 0 0" title="receita ${Math.round(x.receita/1000)}k"></div>
-      <div style="flex:1;height:${hTot}%;display:flex;flex-direction:column;border-radius:3px 3px 0 0;overflow:hidden" title="custo total ${Math.round((fixo+vari+divi)/1000)}k = fixo ${Math.round(fixo/1000)}k + variável ${Math.round(vari/1000)}k + dívidas ${Math.round(divi/1000)}k">
+      <div style="flex:1;height:${hTot}%;display:flex;flex-direction:column;border-radius:3px 3px 0 0;overflow:hidden" title="custo total ${Math.round(custoComAmil/1000)}k = fixo ${Math.round(fixo/1000)}k + variável ${Math.round(variComAmil/1000)}k + dívidas ${Math.round(divi/1000)}k">
         <div style="height:${fr(divi)}%;background:var(--red)" title="dívidas ${Math.round(divi/1000)}k"></div>
-        <div style="height:${fr(vari)}%;background:#4a90a4" title="variável ${Math.round(vari/1000)}k"></div>
+        <div style="height:${fr(variComAmil)}%;background:#4a90a4" title="variável ${Math.round(variComAmil/1000)}k (inclui Amil)"></div>
         <div style="height:${fr(fixo)}%;background:var(--amber)" title="fixo ${Math.round(fixo/1000)}k"></div>
       </div>
     </div><div class="cap">${x.mes}${x.proj?"*":""}</div></div>`;
