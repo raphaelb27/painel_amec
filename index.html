@@ -243,10 +243,22 @@ function pintar(D, aoVivo){
   if(!OPINIT){
     OPINIT=true;
     const fe=document.getElementById("fEsp"), fc=document.getElementById("fConv");
-    const espUsadas=[...new Set(OPDET.linhas.map(l=>l.e))].sort((a,b)=>(OPDET.esp[a]||a).localeCompare(OPDET.esp[b]||b));
-    espUsadas.forEach(id=>{ const op=document.createElement("option"); op.value=id; op.textContent=OPDET.esp[id]||("id "+id); fe.appendChild(op); });
-    const convUsados=[...new Set(OPDET.linhas.map(l=>l.c))].sort((a,b)=>(OPDET.conv[a]||a).localeCompare(OPDET.conv[b]||b));
-    convUsados.forEach(id=>{ const op=document.createElement("option"); op.value=id; op.textContent=OPDET.conv[id]||("id "+id); fc.appendChild(op); });
+    const volE={}, volC={};
+    OPDET.linhas.forEach(l=>{ volE[l.e]=(volE[l.e]||0)+l.n; volC[l.c]=(volC[l.c]||0)+l.n; });
+    const rot=(mapa,id,zero)=> id==="0" ? zero : (mapa[id]||("não cadastrada (id "+id+")"));
+    const ordena=(mapa,vol,zero)=>Object.keys(vol).sort((a,b)=>{
+      const na=!!mapa[a], nb=!!mapa[b];
+      if(na!==nb) return na?-1:1;              // cadastradas primeiro
+      return vol[b]-vol[a];                     // depois por volume
+    });
+    ordena(OPDET.esp,volE,"sem especialidade").forEach(id=>{
+      const op=document.createElement("option"); op.value=id;
+      op.textContent=rot(OPDET.esp,id,"sem especialidade")+" ("+volE[id].toLocaleString("pt-BR")+")";
+      fe.appendChild(op); });
+    ordena(OPDET.conv,volC,"particular / sem convênio").forEach(id=>{
+      const op=document.createElement("option"); op.value=id;
+      op.textContent=rot(OPDET.conv,id,"particular / sem convênio")+" ("+volC[id].toLocaleString("pt-BR")+")";
+      fc.appendChild(op); });
     fe.onchange=fc.onchange=()=>pintar(window.__D,true);
   }
   const selE=document.getElementById("fEsp").value, selC=document.getElementById("fConv").value;
@@ -334,6 +346,12 @@ function pintarEmpresa(){
   if(EMPINP.psiq===undefined)EMPINP.psiq=psiqBase;
   if(EMPINP.neuro===undefined)EMPINP.neuro=neuroBase;
   const tk=nome=>{ for(const k in tickets){ if(k.indexOf(nome)>=0) return tickets[k].v; } return 120; };
+  const par={}; (EMP.custos||[]).filter(c=>c.tipo==="PARAM").forEach(c=>par[c.item.toLowerCase()]=c.valor);
+  const pv=(nome,pad)=>{ for(const k in par){ if(k.indexOf(nome)>=0) return par[k]; } return pad; };
+  const amilTicket=pv("amil ticket",110), amilRep=pv("amil repasse",61), faltas=pv("faltas",17)/100;
+  if(EMPINP.amil===undefined)EMPINP.amil=0;
+  const amilReceita=EMPINP.amil*(1-faltas)*amilTicket*pesoG("ABA");
+  const amilCusto=EMPINP.amil*amilRep*pesoG("ABA");
   const pesoG=g=> (grupo==="TODOS")?1:(g===grupo?1:(g==="AMBOS"?0.5:0));
   // simulador: liminares 18.500 + psiq + neuro (grupo ABA) + demais especialidades no ritmo atual
   const limSess=(EMP.sessoes_liminares_mes||{})[mesCheio]||{};
@@ -346,7 +364,7 @@ function pintarEmpresa(){
     const pw=(grupo==="TODOS")?1:(t.grupo===grupo?1:(t.grupo==="AMBOS"?0.5:0));
     return a+liq*t.v*pw;
   },0);
-  const receitaSim = (limValorAtual + EMPINP.novas*18500)*pesoG("ABA")
+  const receitaSim = amilReceita + (limValorAtual + EMPINP.novas*18500)*pesoG("ABA")
                    + EMPINP.psiq*tk("psiquiat")*pesoG("ABA")
                    + EMPINP.neuro*tk("neuro")*pesoG("ABA")
                    + outrasReceita;
@@ -356,17 +374,20 @@ function pintarEmpresa(){
     const real=receitaMes[k];
     serie.push({mes:k+"/26",receita:real!==undefined?real:receitaSim,proj:real===undefined,custo:custoTotal});
   }
-  const resultado=receitaSim-custoTotal;
+  const variComAmil=vari+amilCusto;
+  const custoComAmil=fixo+variComAmil+divi;
+  const resultado=receitaSim-custoComAmil;
   document.getElementById("empSim").innerHTML=
     `<span style="background:var(--greensoft);padding:5px 9px;border-radius:6px">Liminares ativas hoje: <b>${limCheias} cheias + ${limPacotes} pacotes = ${brl(limValorAtual)}/mês</b> <span style="font-weight:400;color:var(--mut)">(marque na aba Liminares)</span></span>
      <label>+ novas liminares <input type="number" min="0" value="${EMPINP.novas}" style="width:56px" onchange="EMPINP.novas=Number(this.value);pintarEmpresa()"> × R$ 18.500</label>
      <label>Atend. psiquiatria/mês <input type="number" min="0" value="${EMPINP.psiq}" style="width:70px" onchange="EMPINP.psiq=Number(this.value);pintarEmpresa()"> × ${brl(tk("psiquiat"))}</label>
      <label>Atend. neuro/mês <input type="number" min="0" value="${EMPINP.neuro}" style="width:70px" onchange="EMPINP.neuro=Number(this.value);pintarEmpresa()"> × ${brl(tk("neuro"))}</label>
-     <span style="color:var(--mut)">demais especialidades: ritmo do último mês fechado, já descontadas as sessões cobertas pelos contratos de liminar</span>`;
+     <label style="background:var(--ambersoft);padding:5px 9px;border-radius:6px">Amil: sessões agendadas/mês <input type="number" min="0" value="${EMPINP.amil}" style="width:70px" onchange="EMPINP.amil=Number(this.value);pintarEmpresa()"> → margem ${brl(amilReceita-amilCusto)}</label>
+     <span style="color:var(--mut)">demais especialidades: ritmo do último mês fechado, já descontadas as sessões de liminar</span>`;
   document.getElementById("kEmpresa").innerHTML=[
     {l:"Receita simulada/mês",v:brl(receitaSim),s:"liminares + volumes + demais",c:"n"},
     {l:"Custo fixo",v:brl(fixo),s:"linhas ligadas",c:"a"},
-    {l:"Variável + dívidas/mês",v:brl(vari)+" + "+brl(divi),s:"repasses e parcelas",c:"a"},
+    {l:"Variável + dívidas/mês",v:brl(variComAmil)+" + "+brl(divi),s:"repasses (inclui Amil) e parcelas",c:"a"},
     {l:"Resultado do mês",v:brl(resultado),s:resultado>=0?"superávit":"déficit",c:resultado>=0?"g":"r"}
   ].map(kpi).join("");
   const mx=Math.max(...serie.map(x=>x.receita),custoCheio,1);
