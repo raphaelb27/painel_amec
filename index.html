@@ -292,6 +292,7 @@ function pintarEmpresa(){
   if(!EMP) return;
   const grupo=document.getElementById("empGrupo").value;
   const peso=c=> (grupo==="TODOS")?1:(c.grupo===grupo?1:(c.grupo==="AMBOS"?0.5:0));
+  const pesoG=g=> (grupo==="TODOS")?1:(g===grupo?1:(g==="AMBOS"?0.5:0));
   const custos=(EMP.custos||[]).filter(c=>c.tipo!=="TICKET");
   const tickets={}; (EMP.custos||[]).filter(c=>c.tipo==="TICKET").forEach(c=>{
     tickets[c.item.toLowerCase()]={v:c.valor,grupo:c.grupo};
@@ -352,7 +353,6 @@ function pintarEmpresa(){
   if(EMPINP.amil===undefined)EMPINP.amil=0;
   const amilReceita=EMPINP.amil*(1-faltas)*amilTicket*pesoG("ABA");
   const amilCusto=EMPINP.amil*amilRep*pesoG("ABA");
-  const pesoG=g=> (grupo==="TODOS")?1:(g===grupo?1:(g==="AMBOS"?0.5:0));
   // simulador: liminares 18.500 + psiq + neuro (grupo ABA) + demais especialidades no ritmo atual
   const limSess=(EMP.sessoes_liminares_mes||{})[mesCheio]||{};
   const outrasReceita=Object.entries(sessUlt).reduce((a,[eid,n])=>{
