@@ -129,8 +129,8 @@
   <div class="grid" id="kEmpresa"></div>
   <h2>Receita × custo por mês (realizado até o mês atual; depois, projeção mantendo o ritmo)</h2>
   <div class="bars" id="empChart" style="height:210px"></div>
-  <h2>Linhas de custo — desmarque para simular sem a linha</h2>
-  <div id="empCustos" style="display:grid;grid-template-columns:1fr 1fr;gap:4px 18px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;font-size:12.5px"></div>
+  <h2>Linhas de custo — desmarque para simular o corte</h2>
+  <div id="empCustos" style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;font-size:12.5px"></div>
 </section>
 
 <footer id="foot"></footer>
@@ -293,7 +293,7 @@ function pintarEmpresa(){
   const grupo=document.getElementById("empGrupo").value;
   const peso=c=> (grupo==="TODOS")?1:(c.grupo===grupo?1:(c.grupo==="AMBOS"?0.5:0));
   const pesoG=g=> (grupo==="TODOS")?1:(g===grupo?1:(g==="AMBOS"?0.5:0));
-  const custos=(EMP.custos||[]).filter(c=>c.tipo!=="TICKET");
+  const custos=(EMP.custos||[]).filter(c=>c.tipo!=="TICKET"&&c.tipo!=="PARAM");
   const tickets={}; (EMP.custos||[]).filter(c=>c.tipo==="TICKET").forEach(c=>{
     tickets[c.item.toLowerCase()]={v:c.valor,grupo:c.grupo};
   });
@@ -411,14 +411,60 @@ function pintarEmpresa(){
     <span><i style="display:inline-block;width:9px;height:9px;background:#4a90a4;border-radius:2px"></i> variável</span>
     <span><i style="display:inline-block;width:9px;height:9px;background:var(--red);border-radius:2px"></i> dívidas</span>
   </div>`;
-  document.getElementById("empCustos").innerHTML=custos.map((c,i)=>{
-    const on=EMPSEL[i]!==undefined?EMPSEL[i]:c.ativo;
-    return `<label style="display:flex;gap:7px;align-items:center;cursor:pointer;${on?"":"opacity:.45"}">
-      <input type="checkbox" ${on?"checked":""} onchange="EMPSEL[${i}]=this.checked;pintarEmpresa()">
-      <span style="flex:1">${c.item} <span style="color:var(--mut)">(${c.tipo.toLowerCase()}, ${c.grupo})</span></span></label>`;
-  }).join("");
+  const ligado=(c,i)=>EMPSEL[i]!==undefined?EMPSEL[i]:c.ativo;
+  const secoes=[
+    {t:"FIXO",     rot:"Custo fixo",         cor:"var(--amber)"},
+    {t:"VARIAVEL", rot:"Custo variável",     cor:"#4a90a4"},
+    {t:"DIVIDA",   rot:"Dívidas do mês",     cor:"var(--red)"}
+  ];
+  let desligadas=0, economia=0;
+  custos.forEach((c,i)=>{ if(!ligado(c,i)){ desligadas++; economia+=c.valor*peso(c); } });
+
+  let html=`<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px;padding-bottom:11px;border-bottom:1px solid var(--line)">
+      <button onclick="EMPSEL={};pintarEmpresa()" style="padding:5px 11px;border:1px solid var(--line);background:var(--paper);border-radius:7px;cursor:pointer;font-size:12px">Restaurar tudo</button>
+      <button onclick="custosDesligarGrupo('AMEC')" style="padding:5px 11px;border:1px solid var(--line);background:var(--paper);border-radius:7px;cursor:pointer;font-size:12px">Desligar tudo da Ame.C</button>
+      <button onclick="custosDesligarTudo()" style="padding:5px 11px;border:1px solid var(--line);background:var(--paper);border-radius:7px;cursor:pointer;font-size:12px">Desmarcar tudo</button>
+      <span style="flex:1"></span>
+      <span style="font-size:12.5px">${desligadas} linha(s) desligada(s) · <b style="color:var(--green)">economia ${brl(economia)}/mês</b></span>
+    </div>`;
+
+  secoes.forEach(sec=>{
+    const doTipo=custos.map((c,i)=>({c:c,i:i})).filter(x=>x.c.tipo===sec.t)
+                       .sort((a,b)=>b.c.valor-a.c.valor);
+    if(!doTipo.length) return;
+    const ativos=doTipo.filter(x=>ligado(x.c,x.i));
+    const soma=ativos.reduce((a,x)=>a+x.c.valor*peso(x.c),0);
+    html+=`<div style="margin:14px 0 7px;display:flex;align-items:center;gap:9px">
+        <span style="width:5px;height:15px;background:${sec.cor};border-radius:2px;display:inline-block"></span>
+        <b style="font-size:12.5px;text-transform:uppercase;letter-spacing:.5px">${sec.rot}</b>
+        <span style="color:var(--mut);font-size:11.5px">${ativos.length} de ${doTipo.length} ligadas · ${brl(soma)}/mês</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 18px">`;
+    doTipo.forEach(x=>{
+      const on=ligado(x.c,x.i);
+      const tag=x.c.grupo==="AMEC"?"Ame.C":(x.c.grupo==="ABA"?"ABA":x.c.grupo);
+      const cortag=x.c.grupo==="AMEC"?"var(--red)":"var(--mut)";
+      html+=`<label style="display:flex;gap:7px;align-items:center;cursor:pointer;padding:2px 0;${on?"":"opacity:.42;text-decoration:line-through"}">
+        <input type="checkbox" ${on?"checked":""} onchange="EMPSEL[${x.i}]=this.checked;pintarEmpresa()">
+        <span style="flex:1">${x.c.item}</span>
+        <span style="font-size:10.5px;color:${cortag};border:1px solid var(--line);border-radius:4px;padding:0 5px">${tag}</span>
+      </label>`;
+    });
+    html+=`</div>`;
+  });
+  document.getElementById("empCustos").innerHTML=html;
 }
 document.getElementById("empGrupo").onchange=pintarEmpresa;
+function custosDesligarGrupo(g){
+  if(!EMP) return;
+  (EMP.custos||[]).filter(c=>c.tipo!=="TICKET"&&c.tipo!=="PARAM").forEach((c,i)=>{ if(c.grupo===g) EMPSEL[i]=false; });
+  pintarEmpresa();
+}
+function custosDesligarTudo(){
+  if(!EMP) return;
+  (EMP.custos||[]).filter(c=>c.tipo!=="TICKET"&&c.tipo!=="PARAM").forEach((c,i)=>{ EMPSEL[i]=false; });
+  pintarEmpresa();
+}
 
 document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{
   document.querySelectorAll(".tab").forEach(x=>x.classList.remove("on"));
