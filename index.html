@@ -71,6 +71,7 @@
   <div class="tab" data-p="mutirao">Mutirão</div>
   <div class="tab" data-p="liminares">Liminares</div>
   <div class="tab" data-p="operacao">Operação</div>
+  <div class="tab" data-p="custos">Custos</div>
   <div class="tab" data-p="empresa">Empresa</div>
 </div>
 
@@ -79,7 +80,7 @@
   <div class="note" id="fluxoNota" style="margin-bottom:14px"></div>
   <h2>Caixa livre acumulado — 13 semanas</h2>
   <div class="bars" id="fcp"></div>
-  <div class="note">Barras vermelhas: a fila de contas supera o que entrou. A triagem de segunda decide o que paga e o que rola com data</div>
+  <div class="note">Barras vermelhas: a fila de contas supera o que entrou. A triagem de segunda decide o que paga e o que rola com data.</div>
   <h2>Contas a pagar, na ordem de prioridade</h2>
   <table id="tContas"><thead><tr><th>Nível</th><th>Credor / Compromisso</th><th class="num">Devido total</th><th class="num">Obrigação do mês</th><th>Situação</th></tr></thead><tbody></tbody></table>
   <div class="note" id="tContasTotais"></div>
@@ -99,6 +100,13 @@
   <h2>Sessões realizadas no ano, por caso</h2>
   <table id="tLim"><thead><tr><th>Caso</th><th class="num">Sessões</th></tr></thead><tbody></tbody></table>
   <div class="note">Contagem automática do Feegow (status Atendido). Onde a lista de presença física mostrar mais, o valor cobrável sobe.</div>
+</section>
+
+<section class="panel" id="custos">
+  <div class="grid" id="kCustos"></div>
+  <h2>Mapa completo de custos (aba "Custos" da planilha)</h2>
+  <table id="tCustos"><thead><tr><th>Tipo</th><th>Item</th><th>Grupo</th><th class="num">R$/mês</th><th>Status</th></tr></thead><tbody></tbody></table>
+  <div class="note">Fonte: aba "Custos" da planilha principal, ao vivo. Para alterar um valor, incluir uma linha ou desativar um custo (coluna Ativo = NAO), edite a planilha; o painel reflete no próximo refresh. Linhas desativadas aparecem riscadas e fora dos totais.</div>
 </section>
 
 <section class="panel" id="operacao">
@@ -192,18 +200,21 @@ function pintar(D, aoVivo){
 
   const m = D.mutirao||{};
   document.getElementById("kMutirao").innerHTML = [
-    {l:"A faturar (P1 a P3)",v:brl(m.faturar),s:"prontas para transmitir",c:"g"},
-    {l:"A cobrar (já enviadas)",v:brl(m.cobrar),s:"conciliar pagamento",c:"a"},
-    {l:"Carta Bradesco (P4)",v:brl(m.carta),s:"aguarda anexo revisado",c:"a"},
+    {l:"A faturar (cauda de agosto)",v:brl(m.faturar),s:"transmitir antes do descredenciamento",c:"g"},
+    {l:"Transmitidas, aguardando pagamento",v:brl(m.cobrar),s:"Lucas abr-jul + lotes recentes",c:"a"},
+    {l:"Carta extemporâneas (anexo final)",v:brl(m.carta),s:"1.169 guias com 4 provas cada",c:"a"},
     {l:"A cancelar (fantasmas)",v:brl(m.cancelar),s:"agendas inativas",c:"r"}
   ].map(kpi).join("");
 
   const l = D.liminares||{};
+  const ldet = l.detalhe||[];
+  const limMes = ldet.reduce((a,d)=>a+((d.parado===0&&d.mes>0)?d.mes:0),0);
+  const limRecebido = ldet.reduce((a,d)=>a+(d.recebido||0),0);
   document.getElementById("kLiminares").innerHTML = [
-    {l:"Prevent por mês",v:brl(l.prevent_mensal),s:"pagador âncora",c:"a"},
+    {l:"Liminares por mês (todas confirmadas)",v:brl(limMes),s:ldet.filter(d=>d.parado===0&&d.mes>0).length+" casos recebendo",c:"g"},
+    {l:"Total já recebido no ano",v:brl(limRecebido),s:"soma de todos os casos",c:"a"},
     {l:"Backlog auditado",v:brl(l.backlog),s:"contagem de sessões",c:"a"},
-    {l:"Casos no funil",v:Object.keys(l.sessoes||{}).length||"—",s:"com sessões no ano",c:"n"},
-    {l:"Itaú vencido",v:brl(c.itau_vencido),s:"prioridade absoluta",c:"r"}
+    {l:"Casos no funil",v:Object.keys(l.sessoes||{}).length||"—",s:"com sessões no ano",c:"n"}
   ].map(kpi).join("");
   const ses = Object.entries(l.sessoes||{}).sort((a,b)=>b[1]-a[1]);
   document.querySelector("#tLim tbody").innerHTML = ses.length
@@ -226,7 +237,9 @@ function pintar(D, aoVivo){
     {l:"Senhas obtidas / pendentes",v:(pr.senhas_obtidas??0)+" / "+(pr.senhas_pendentes??0),s:"lista mensal",c:"n"}
   ].map(kpi).join("");
 
-  const contas = (D.caixa||{}).contas||[];
+  const contas = ((D.caixa||{}).contas||[]).slice()
+    .map((c0,i)=>Object.assign({__i:i},c0))
+    .sort((a,b)=>(a.nivel-b.nivel)||((a.ordem||a.__i)-(b.ordem||b.__i)));
   const cores = {1:"var(--red)",2:"var(--red)",3:"var(--amber)",4:"var(--amber)",5:"var(--teal)",6:"var(--mut)",7:"var(--mut)"};
   document.querySelector("#tContas tbody").innerHTML = contas.length
     ? contas.map(c0=>`<tr><td style="font-weight:700;color:${cores[c0.nivel]||'var(--ink)'}">${c0.nivel}</td><td>${c0.credor}</td><td class="num">${c0.total?brl(c0.total):"—"}</td><td class="num">${c0.mes?brl(c0.mes):"—"}</td><td style="font-size:11.5px">${c0.sit}</td></tr>`).join("")
@@ -234,8 +247,9 @@ function pintar(D, aoVivo){
   if(contas.length){
     const td=contas.reduce((a,c0)=>a+(c0.total||0),0), tm=contas.reduce((a,c0)=>a+(c0.mes||0),0);
     document.getElementById("tContasTotais").textContent =
-      "Devido total mapeado: "+brl(td)+" · obrigações do mês: "+brl(tm)+" · níveis 1 e 2 nunca atrasam; 7 é contenção comunicada.";
+      "Devido total mapeado: "+brl(td)+" · obrigações do mês: "+brl(tm)+" · para reordenar ou incluir contas, edite a aba \"Contas Prioridade\" na planilha (coluna Nível define o bloco; coluna Ordem desempata; linhas novas entram no próximo refresh).";
   }
+  pintarCustos(D);
 
   EMP = D.empresa||null; if(EMP) pintarEmpresa();
   const o = D.operacao||{};
@@ -453,6 +467,29 @@ function pintarEmpresa(){
     html+=`</div>`;
   });
   document.getElementById("empCustos").innerHTML=html;
+}
+function pintarCustos(D){
+  const cs=((D.empresa||{}).custos||[]).filter(c=>c.tipo!=="TICKET"&&c.tipo!=="PARAM");
+  if(!cs.length){ document.querySelector("#tCustos tbody").innerHTML=`<tr><td colspan="5">Preencha a aba "Custos".</td></tr>`; return; }
+  const at=cs.filter(c=>c.ativo);
+  const soma=t=>at.filter(c=>c.tipo===t).reduce((a,c)=>a+c.valor,0);
+  const fixo=soma("FIXO"), vari=soma("VARIAVEL"), divi=soma("DIVIDA");
+  document.getElementById("kCustos").innerHTML=[
+    {l:"Custo fixo/mês",v:brl(fixo),s:at.filter(c=>c.tipo==="FIXO").length+" linhas ativas",c:"a"},
+    {l:"Variável/mês",v:brl(vari),s:"repasses e produção",c:"a"},
+    {l:"Dívidas e acordos/mês",v:brl(divi),s:"parcelas correntes",c:"r"},
+    {l:"TOTAL ativo",v:brl(fixo+vari+divi),s:cs.length-at.length+" linhas desativadas",c:"n"}
+  ].map(kpi).join("");
+  const ordem={FIXO:1,VARIAVEL:2,DIVIDA:3};
+  const linhas=cs.slice().sort((a,b)=>(ordem[a.tipo]||9)-(ordem[b.tipo]||9)||b.valor-a.valor);
+  let tipoAtual="";
+  document.querySelector("#tCustos tbody").innerHTML=linhas.map(c=>{
+    let cab="";
+    if(c.tipo!==tipoAtual){ tipoAtual=c.tipo;
+      const st=at.filter(x=>x.tipo===c.tipo).reduce((a,x)=>a+x.valor,0);
+      cab=`<tr style="background:var(--card)"><td colspan="3" style="font-weight:800">${c.tipo}</td><td class="num" style="font-weight:800">${brl(st)}</td><td></td></tr>`;}
+    return cab+`<tr style="${c.ativo?"":"opacity:.45;text-decoration:line-through"}"><td style="color:var(--mut);font-size:11px">${c.tipo}</td><td>${c.item}</td><td><span style="font-size:10.5px;border:1px solid var(--line);border-radius:4px;padding:0 5px;color:${c.grupo==="AMEC"?"var(--red)":"var(--mut)"}">${c.grupo==="AMEC"?"Ame.C":c.grupo}</span></td><td class="num">${brl(c.valor)}</td><td style="font-size:11px">${c.ativo?"ativo":"desativado"}</td></tr>`;
+  }).join("");
 }
 document.getElementById("empGrupo").onchange=pintarEmpresa;
 function custosDesligarGrupo(g){
